@@ -15,6 +15,7 @@
 | M5 不确定区间 | 运行不确定区间并复核证据 | `POST /api/m5`；`/work/5` | `app/modules/m5_uncertainty/rules.py` | `tests/test_m5.py` |
 | M6 验收对照 | 运行验收对照并复核证据 | `POST /api/m6`；`/work/6` | `app/modules/m6_acceptance/rules.py` | `tests/test_m6.py` |
 | M7 复配批次 | 运行复配批次并复核证据 | `POST /api/m7`；`/work/7` | `app/modules/m7_reblend/rules.py` | `tests/test_m7.py` |
+| M8 称重回执台账 | 回执建账、干重领用、续跑去重、台账下载 | `POST /api/m8/ledgers`；`/ledger` | `app/modules/m8_ledger/rules.py` | `tests/test_m8_rules.py`、`tests/test_m8_api.py` |
 
 ## 陷阱登记
 
@@ -28,6 +29,10 @@
 | TRAP-15 | 吨与千克 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m2_assay/rules.py` | `tests/test_m2.py::test_units` |
 | TRAP-19 | 批号元数据冲突优先 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m3_recipe/rules.py` | `tests/test_m3.py::test_conflicting_lot_mass` |
 | TRAP-25 | 配方版本锁定 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m3_recipe/rules.py` | `tests/test_m3.py::test_version_lock` |
+| TRAP-31 | 湿重直接投料超投 | 结算湿重被当成可投量 | 湿重仅作结算依据，领用只扣脱水干重余量 | `app/modules/m8_ledger/rules.py` | `tests/test_m8_rules.py::test_wet_weight_kept_for_settlement_dry_balance_for_production` |
+| TRAP-32 | 重试重复扣减 | 网络重试再次扣余量 | request_id/幂等键回放原记录，不二次扣减 | `app/modules/m8_ledger/rules.py` | `tests/test_m8_rules.py::test_retry_same_request_id_replays_without_double_deduction` |
+| TRAP-33 | 中断续跑重复确认 | 整批重跑导致已确认项重复 | 按已确认 request_id 跳过，从未确认处续跑 | `app/modules/m8_ledger/rules.py` | `tests/test_m8_rules.py::test_batch_interrupts_and_resumes_from_confirmed_point` |
+| TRAP-34 | 同批回执不一致 | 静默采信后值覆盖前值 | 整批隔离并禁止领用，保留冲突原值 | `app/modules/m8_ledger/rules.py` | `tests/test_m8_rules.py::test_conflicting_assay_quarantines_whole_lot_and_blocks_issue` |
 
 ## 对账规则
 

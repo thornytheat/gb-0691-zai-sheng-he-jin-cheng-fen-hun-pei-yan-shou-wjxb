@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{title}} · 称重回执台账</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/layout.css">
+<link rel="stylesheet" href="/static/components.css">
+<script defer src="/static/ledger.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">ALLOY / 08</div>
+    <nav>
+      {% for name in modules %}
+      <a href="{{'/ledger' if loop.index==8 else '/work/'|string+loop.index|string}}"
+         class="{{'active' if loop.index==8}}">{{'%02d'|format(loop.index)}}　{{name}}</a>
+      {% endfor %}
+    </nav>
+    <small>结算：原始湿重 + 到货含量<br>配料：脱水干重余量</small>
+  </aside>
+  <div class="work">
+    <header class="topbar">
+      <strong>08　称重回执领用台账</strong>
+      <span class="muted" id="ledger-id">{{data.ledger_id}}</span>
+      <button id="sample-receipts" class="primary">样例回执建账</button>
+      <a class="btn" href="/api/m8/ledgers/{{data.ledger_id}}/ledger.csv">台账下载 CSV</a>
+    </header>
+    <main class="content">
+      <div class="kpis">
+        <div class="kpi"><span>回执采信行</span><b>{{data.receipt_rows_accepted}} <small>行</small></b></div>
+        <div class="kpi"><span>隔离批次/行</span><b>{{data.quarantine|length}} <small>条</small></b></div>
+        <div class="kpi"><span>已确认领用</span><b>{{data.issues|length}} <small>次</small></b></div>
+        <div class="kpi"><span>当前干重余量</span><b id="kpi-balance">{{data.conservation.balance_kg}} <small>kg</small></b></div>
+        <div class="kpi"><span>干重守恒</span><b id="kpi-conserved">{{'相符' if data.conservation.conserved else '差异'}}</b></div>
+        <div class="kpi"><span>规则版本</span><b>{{data.rule_version}}</b></div>
+      </div>
+
+      <div class="panel-grid">
+        <section class="panel span-all">
+          <div class="panel__head"><h2>① 批号台账（原回执 · 炉次成分 · 当前余量）</h2>
+            <span>{{data.lots|length}} 批</span></div>
+          <div class="scroll">
+            <table>
+              <thead><tr>
+                <th>批号</th><th>回执编号</th><th>到货批次</th><th>原始湿重 kg</th>
+                <th>水分 %</th><th>脱水干重 kg</th><th>当前干重余量 kg</th>
+                <th>到货含量（干基）</th><th>状态</th>
+              </tr></thead>
+              <tbody id="lots-body">
+              {% for lot in data.lots %}
+                <tr class="{{'sev--severe' if lot.status=='隔离'}}">
+                  <td>{{lot.lot}}</td><td>{{lot.receipt_id}}</td><td>{{lot.arrival_batch}}</td>
+                  <td>{{lot.wet_mass_kg|display}}</td><td>{{lot.moisture_pct|display}}</td>
+                  <td>{{lot.dry_total_kg|display}}</td><td>{{lot.dry_balance_kg|display}}</td>
+                  <td title="{{lot.到货含量}}">{{lot.到货含量}}</td>
+                  <td>{{lot.status}}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__head"><h2>② 每次领用去向</h2><span>只扣干重</span></div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>#</th><th>请求号</th><th>批号</th><th>去向炉次</th>
+                <th>领用干重 kg</th><th>领后余量 kg</th><th>处理</th></tr></thead>
+              <tbody id="issues-body">
+              {% for issue in data.issues %}
+                <tr><td>{{issue.seq}}</td><td>{{issue.request_id}}</td><td>{{issue.lot}}</td>
+                  <td>{{issue.furnace}}</td><td>{{issue.requested_kg|display}}</td>
+                  <td>{{issue.remaining_kg|display}}</td><td>{{issue.get('处理','已确认')}}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="panel__body">
+            <details open>
+              <summary>单次领用（请求号重试不重复扣减）</summary>
+              <div class="controls">
+                <input id="one-request" placeholder="请求号 request_id" aria-label="请求号">
+                <input id="one-lot" placeholder="批号" aria-label="批号">
+                <input id="one-furnace" placeholder="去向炉次" aria-label="炉次">
+                <input id="one-mass" placeholder="干重" aria-label="干重">
+                <select id="one-unit" aria-label="单位"><option>kg</option><option>t</option></select>
+                <button id="one-submit" class="primary">确认领用</button>
+              </div>
+            </details>
+            <details>
+              <summary>多批领用 CSV（中断后从已确认处续跑）</summary>
+              <textarea id="batch-csv" aria-label="领用CSV">{{issue_sample}}</textarea>
+              <div class="controls">
+                <button id="batch-submit" class="primary">批量提交/续跑</button>
+                <input id="batch-file" type="file" accept=".csv" aria-label="上传领用CSV">
+                <button id="batch-upload">上传</button>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__head"><h2>③ 隔离区（不一致先隔离）</h2>
+            <span>{{data.quarantine|length}} 条</span></div>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>原始行</th><th>回执</th><th>批号</th>
+                <th>原因码</th><th>原因</th></tr></thead>
+              <tbody id="quarantine-body">
+              {% for q in data.quarantine %}
+                <tr><td>{{q.get('行号','—')}}</td><td>{{q.get('回执','—')}}</td>
+                  <td>{{q.get('批号','—')}}</td>
+                  <td class="sev--severe">{{q.原因码}}</td><td>{{q.原因}}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="panel__body">
+            <details>
+              <summary>按称重回执建账 / 重建（湿重+到货含量）</summary>
+              <textarea id="receipt-csv" aria-label="回执CSV">{{receipt_sample}}</textarea>
+              <div class="controls">
+                <button id="receipt-submit">提交回执建账</button>
+                <input id="receipt-file" type="file" accept=".csv" aria-label="上传回执CSV">
+                <button id="receipt-upload">上传回执</button>
+              </div>
+            </details>
+            <div id="feedback" role="status" class="alert"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <footer class="statusbar">
+      <span>{{data.created_at}} / UTC</span>
+      <span>{{data.rule_version}} · {{data.receipt_sha256[:12]}}</span>
+    </footer>
+  </div>
+</div>
+</body>
+</html>
