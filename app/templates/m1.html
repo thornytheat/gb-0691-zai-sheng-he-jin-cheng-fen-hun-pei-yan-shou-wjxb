@@ -1,0 +1,2 @@
+{% extends 'base.html' %}
+{% block stage_visual %}<div class="stamp">{{run.eligible|map(attribute="batch")|unique|join(" / ")}}</div><p class="muted">{{run.normalized|length}} 条成分记录</p>{% endblock %}

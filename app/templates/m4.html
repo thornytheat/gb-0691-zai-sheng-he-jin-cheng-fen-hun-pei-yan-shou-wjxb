@@ -1,0 +1,2 @@
+{% extends 'base.html' %}
+{% block stage_visual %}<div class="muted">质量分数 0–100%</div>{% for r in run.mixture %}<div class="range"><span>{{r["元素"]}}</span><div class="range-track"><i style="left:{{r['含量下界_pct']}}%;width:{{r['含量上界_pct']|float-r['含量下界_pct']|float}}%"></i></div><span>{{r["含量下界_pct"]}}–{{r["含量上界_pct"]}}%</span></div>{% endfor %}{% endblock %}

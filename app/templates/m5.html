@@ -1,0 +1,2 @@
+{% extends 'base.html' %}
+{% block stage_visual %}{% for r in run.intervals %}<p>{{r["元素"]}}　{{r["区间宽度_pct"]}} %</p>{% endfor %}{% endblock %}
